@@ -50,6 +50,39 @@ async function run() {
             res.send(result);
         });
 
+        app.get('/myfoods', async (req, res) => {
+            const email = req.query.email;
+            console.log(email);
+            const query = {email: email};
+            const result = await foodsCollection.find(query).toArray();
+            res.send(result);
+        });
+
+        app.delete('myfoods/:id', async (req, res) => {
+            const id = req.params;
+            console.log(id);
+            const query = {_id: new ObjectId(id)};
+            const result = await foodsCollection.deleteMany(query);
+            res.send(result);
+        });
+
+        app.patch('/myfoods', async (req, res) => {
+            const id = req.params;
+            const data = req.body;
+            const query = {_id: new ObjectId(id)};
+            const updateDoc = {
+                $set: {
+                    food_image: data.food_image,
+                    food_name: data.food_name,
+                    food_quantity: data.food_quantity,
+                    additional_notes: data.additional_notes,
+                    date_added: data.date_added,
+                },
+            };
+            const result = await foodsCollection.updateOne(query, updateDoc);
+            res.send(result);
+        });
+
         await client.db('admin').command({ping: 1});
         console.log(
             'Pinged your deployment. You successfully connected to MongoDB!'
