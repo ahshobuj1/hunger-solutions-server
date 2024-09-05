@@ -30,6 +30,10 @@ async function run() {
             .db('hungerSolutions')
             .collection('foods');
 
+        const foodRequestCollection = client
+            .db('hungerSolutions')
+            .collection('foodRequest');
+
         // Foods related API
         app.get('/foods', async (req, res) => {
             const result = await foodsCollection.find().toArray();
@@ -80,6 +84,20 @@ async function run() {
                 },
             };
             const result = await foodsCollection.updateOne(query, updateDoc);
+            res.send(result);
+        });
+
+        // Foods request related API
+        app.get('/myrequest', async (req, res) => {
+            const email = req.query.email;
+            const filter = {email: email};
+            const result = await foodRequestCollection.find(filter).toArray();
+            res.send(result);
+        });
+
+        app.post('/myrequest', async (req, res) => {
+            const requestFoods = req.body;
+            const result = await foodRequestCollection.insertOne(requestFoods);
             res.send(result);
         });
 
