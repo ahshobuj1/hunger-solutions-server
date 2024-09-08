@@ -2,13 +2,13 @@ const express = require('express');
 const app = express();
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
-//const cookieParser = require('cookie-parser');
+const cookieParser = require('cookie-parser');
 require('dotenv').config();
 const {MongoClient, ServerApiVersion, ObjectId} = require('mongodb');
 const port = process.env.PORT || 5000;
 
 // middlewares
-//app.use(cookieParser());
+app.use(cookieParser());
 app.use(express.json());
 /* app.use(
     cors({
@@ -39,6 +39,23 @@ const client = new MongoClient(uri, {
 });
 
 // Middlewares
+const verifyToken = (req, res, next) => {
+    const token = req?.cookies?.token;
+    console.log('cookies token ', token);
+
+    if (!token) {
+        return res.status(402).send({message: 'unauthorized'});
+    }
+
+    jwt.verify(token, process.env.SECRET_KEY_JWT, (err, decoded) => {
+        if (err) {
+            return res.status(402).send({message: 'unauthorized'});
+        }
+
+        req.user = decoded;
+        next();
+    });
+};
 
 // Cookie options
 const cookieOptions = {
@@ -71,7 +88,7 @@ async function run() {
         });
 
         app.post('/logout', async (req, res) => {
-            const token = req.cookies;
+            const user = req.body;
             res.clearCookie('token', {...cookieOptions, maxAge: 0}).send({
                 success: true,
             });
@@ -97,9 +114,15 @@ async function run() {
             res.send(result);
         });
 
-        app.get('/myfoods', async (req, res) => {
+        app.get('/myfoods', verifyToken, async (req, res) => {
             const email = req.query.email;
             console.log(email);
+            console.log(req.user.email);
+
+            if (req?.user?.email !== req?.query?.email) {
+                return res.status(403).send({message: 'forbidden access'});
+            }
+
             const query = {email: email};
             const result = await foodsCollection.find(query).toArray();
             res.send(result);
@@ -132,8 +155,13 @@ async function run() {
         });
 
         // Foods request related API
-        app.get('/myrequest', async (req, res) => {
+        app.get('/myrequest', verifyToken, async (req, res) => {
             const email = req?.query?.email;
+
+            if (req?.user?.email !== req?.query?.email) {
+                return res.status(403).send({message: 'forbidden access'});
+            }
+
             const query = {email: email};
             const result = await foodRequestCollection.find(query).toArray();
             res.send(result);
