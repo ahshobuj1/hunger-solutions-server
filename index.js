@@ -1,13 +1,31 @@
 const express = require('express');
 const app = express();
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
+//const cookieParser = require('cookie-parser');
 require('dotenv').config();
 const {MongoClient, ServerApiVersion, ObjectId} = require('mongodb');
 const port = process.env.PORT || 5000;
 
 // middlewares
-app.use(cors());
+//app.use(cookieParser());
 app.use(express.json());
+/* app.use(
+    cors({
+        origin: [
+            'http://localhost:5173',
+            'https://hunger-solutions-3d07f.web.app',
+            'https://hunger-solutions-3d07f.firebaseapp.com',
+        ],
+        credentials: true,
+    })
+); */
+app.use(
+    cors({
+        origin: ['http://localhost:5173'],
+        credentials: true,
+    })
+);
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@ecommercedatabase.la5qrjd.mongodb.net/?retryWrites=true&w=majority&appName=ecommerceDatabase`;
 
@@ -19,6 +37,15 @@ const client = new MongoClient(uri, {
         deprecationErrors: true,
     },
 });
+
+// Middlewares
+
+// Cookie options
+const cookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production' ? true : false,
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+};
 
 async function run() {
     try {
@@ -33,6 +60,22 @@ async function run() {
         const foodRequestCollection = client
             .db('hungerSolutions')
             .collection('foodRequest');
+
+        //Auth related API
+        app.post('/jwt', async (req, res) => {
+            const email = req.body;
+            const token = jwt.sign(email, process.env.SECRET_KEY_JWT, {
+                expiresIn: '1h',
+            });
+            res.cookie('token', token, cookieOptions).send(token);
+        });
+
+        app.post('/logout', async (req, res) => {
+            const token = req.cookies;
+            res.clearCookie('token', {...cookieOptions, maxAge: 0}).send({
+                success: true,
+            });
+        });
 
         // Foods related API
         app.get('/foods', async (req, res) => {
@@ -62,15 +105,15 @@ async function run() {
             res.send(result);
         });
 
-        app.delete('myfoods/:id', async (req, res) => {
+        app.delete('/myfoods/:id', async (req, res) => {
             const id = req.params;
             console.log(id);
             const query = {_id: new ObjectId(id)};
-            const result = await foodsCollection.deleteMany(query);
+            const result = await foodsCollection.deleteOne(query);
             res.send(result);
         });
 
-        app.patch('/myfoods', async (req, res) => {
+        app.patch('/myfoods/:id', async (req, res) => {
             const id = req.params;
             const data = req.body;
             const query = {_id: new ObjectId(id)};
@@ -80,7 +123,8 @@ async function run() {
                     food_name: data.food_name,
                     food_quantity: data.food_quantity,
                     additional_notes: data.additional_notes,
-                    date_added: data.date_added,
+                    expiry_datetime: data.expiry_datetime,
+                    pickup_location: data.pickup_location,
                 },
             };
             const result = await foodsCollection.updateOne(query, updateDoc);
@@ -89,9 +133,9 @@ async function run() {
 
         // Foods request related API
         app.get('/myrequest', async (req, res) => {
-            const email = req.query.email;
-            const filter = {email: email};
-            const result = await foodRequestCollection.find(filter).toArray();
+            const email = req?.query?.email;
+            const query = {email: email};
+            const result = await foodRequestCollection.find(query).toArray();
             res.send(result);
         });
 
