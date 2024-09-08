@@ -10,7 +10,7 @@ const port = process.env.PORT || 5000;
 // middlewares
 app.use(cookieParser());
 app.use(express.json());
-/* app.use(
+app.use(
     cors({
         origin: [
             'http://localhost:5173',
@@ -19,13 +19,13 @@ app.use(express.json());
         ],
         credentials: true,
     })
-); */
-app.use(
+);
+/* app.use(
     cors({
         origin: ['http://localhost:5173'],
         credentials: true,
     })
-);
+); */
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@ecommercedatabase.la5qrjd.mongodb.net/?retryWrites=true&w=majority&appName=ecommerceDatabase`;
 
@@ -96,8 +96,18 @@ async function run() {
 
         // Foods related API
         app.get('/foods', async (req, res) => {
-            const result = await foodsCollection.find().toArray();
-            res.send(result);
+            const perPage = parseInt(req?.query?.limit);
+            const page = parseInt(req?.query?.page);
+            const mySort = {date_added: -1};
+            const result = await foodsCollection
+                .find()
+                .limit(perPage)
+                .skip(page * perPage)
+                .sort(mySort)
+                .toArray();
+            const totalDocuments =
+                await foodsCollection.estimatedDocumentCount();
+            res.json({totalDocuments, result});
         });
 
         app.get('/foods/:id', async (req, res) => {
